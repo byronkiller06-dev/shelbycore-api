@@ -8,9 +8,19 @@ const PIPELINE_STAGES = ['LEAD', 'PROSPECT', 'NEGOTIATION', 'CUSTOMER', 'LOST'];
 export class CrmService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, stage?: string) {
+  list(tenantId: string, stage?: string, search?: string) {
     return this.prisma.customer.findMany({
-      where: { tenantId, ...(stage ? { stage } : {}) },
+      where: {
+        tenantId,
+        ...(stage ? { stage } : {}),
+        ...(search ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { company: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        } : {}),
+      },
       orderBy: { updatedAt: 'desc' },
     });
   }

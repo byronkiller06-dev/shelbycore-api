@@ -27,6 +27,30 @@ export class AnalyzeDto {
   @IsOptional() @IsString() businessContext?: string;
 }
 
+export class FindProspectsDto {
+  @IsString() industry!: string;
+  @IsString() location!: string;
+  @IsOptional() @IsNumber() @Min(1) @Max(20) count?: number;
+}
+
+export class AnalyzeCompanyDto {
+  @IsString() name!: string;
+  @IsOptional() @IsString() company?: string;
+  @IsOptional() @IsString() industry?: string;
+  @IsOptional() @IsString() location?: string;
+  @IsOptional() @IsString() notes?: string;
+}
+
+export class GeneratePitchDto {
+  @IsString() name!: string;
+  @IsOptional() @IsString() company?: string;
+  @IsOptional() @IsString() industry?: string;
+  @IsOptional() @IsString() location?: string;
+  @IsOptional() @IsString() analysis?: string;
+  @IsOptional() @IsString() recommendedProduct?: string;
+  @IsOptional() @IsString() painPoint?: string;
+}
+
 export class AssistDto {
   @IsString() prompt!: string;
   @IsIn(['admin', 'worker']) audience!: 'admin' | 'worker';

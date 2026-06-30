@@ -67,6 +67,44 @@ export class OrionAiService {
     });
   }
 
+  async findProspects(industry: string, location: string, count = 8): Promise<unknown[]> {
+    const res = await this.generate({
+      prompt: `Genera exactamente ${count} negocios del rubro "${industry}" en "${location}" que necesiten tecnología de ShelbyCore AI. Devuelve solo el JSON array, sin texto adicional.`,
+      system: SystemPrompts.prospectFinder(),
+      config: { json: true, temperature: 0.7 },
+    });
+    try {
+      const text = res.text.replace(/```json|```/g, '').trim();
+      return JSON.parse(text) as unknown[];
+    } catch { return []; }
+  }
+
+  async analyzeCompany(data: { name: string; company?: string; industry?: string; location?: string; notes?: string }): Promise<unknown> {
+    const prompt = `Empresa: ${data.company || data.name}\nContacto: ${data.name}\nRubro: ${data.industry || 'desconocido'}\nUbicación: ${data.location || 'México'}\nNotas: ${data.notes || 'sin notas adicionales'}\n\nAnaliza y devuelve solo el JSON, sin texto adicional.`;
+    const res = await this.generate({
+      prompt,
+      system: SystemPrompts.companyAnalyzer(),
+      config: { json: true, temperature: 0.4 },
+    });
+    try {
+      const text = res.text.replace(/```json|```/g, '').trim();
+      return JSON.parse(text);
+    } catch { return { analysis: res.text, fitScore: 0.7, needs: ['ShelbyCore AI'], recommendedProduct: 'ShelbyCore AI', urgency: 'media' }; }
+  }
+
+  async generatePitch(data: { name: string; company?: string; industry?: string; location?: string; analysis?: string; recommendedProduct?: string; painPoint?: string }): Promise<unknown> {
+    const prompt = `Empresa: ${data.company || data.name}\nRubro: ${data.industry || 'general'}\nUbicación: ${data.location || 'México'}\nProducto recomendado: ${data.recommendedProduct || 'ShelbyCore AI'}\nProblema principal: ${data.painPoint || 'no especificado'}\nAnálisis: ${data.analysis || 'empresa sin análisis previo'}\n\nGenera el pitch y mensajes. Devuelve solo el JSON, sin texto adicional.`;
+    const res = await this.generate({
+      prompt,
+      system: SystemPrompts.pitchGenerator(),
+      config: { json: true, temperature: 0.6 },
+    });
+    try {
+      const text = res.text.replace(/```json|```/g, '').trim();
+      return JSON.parse(text);
+    } catch { return { pitch: res.text, whatsappMessage: res.text, emailSubject: 'ShelbyCore AI para tu negocio', emailBody: res.text, followUpDate: 3 }; }
+  }
+
   // Preparado para multimodal (voz/OCR/imágenes/documentos): basta con pasar
   // `attachments` a generate(); la infraestructura ya lo soporta.
 

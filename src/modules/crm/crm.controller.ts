@@ -11,7 +11,7 @@ export class CrmController {
   constructor(private readonly crm: CrmService) {}
 
   @Get() @Scopes('crm:read')
-  list(@CurrentTenant() t: string, @Query('stage') stage?: string) { return this.crm.list(t, stage); }
+  list(@CurrentTenant() t: string, @Query('stage') stage?: string, @Query('search') search?: string) { return this.crm.list(t, stage, search); }
 
   @Get('summary') @Scopes('crm:read')
   summary(@CurrentTenant() t: string) { return this.crm.summary(t); }
