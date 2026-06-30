@@ -1,0 +1,180 @@
+// ShelbyCore AI - ORION CORE - modelo de datos multi-tenant
+// Provider: PostgreSQL (Railway en prod, Docker local en dev)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------- Identidad & multi-tenant ---------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  tenants   Tenant[]
+  createdAt DateTime @default(now())
+}
+
+model Tenant {
+  id        String     @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  name      String
+  slug      String     @unique
+  branding  String?
+  plan      String     @default("BASIC")
+  status    String     @default("ACTIVE")
+  users     User[]
+  roles     Role[]
+  agents    Agent[]
+  customers Customer[]
+  tasks     Task[]
+  documents Document[]
+  createdAt DateTime   @default(now())
+
+  @@index([orgId])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  email        String
+  name         String
+  passwordHash String
+  roles        Role[]   @relation("UserRoles")
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Role {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  name     String
+  scopes   String @default("[]")
+  users    User[] @relation("UserRoles")
+
+  @@unique([tenantId, name])
+}
+
+// --------- Agentes & ejecucion ---------
+
+model Agent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  code      String
+  name      String
+  domain    String
+  manifest  String   @default("{}")
+  status    String   @default("IDLE")
+  tasks     Task[]
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Task {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  agentId    String?
+  agent      Agent?   @relation(fields: [agentId], references: [id])
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  title      String
+  intent     String?
+  payload    String?
+  state      String   @default("PENDING")
+  priority   String   @default("NORMAL")
+  attempts   Int      @default(0)
+  traceId    String   @default(cuid())
+  dueAt      DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, state])
+}
+
+// --------- CRM ---------
+
+model Customer {
+  id        String     @id @default(cuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  product   String?
+  stage     String     @default("LEAD")
+  score     Float      @default(0)
+  value     Float      @default(0)
+  notes     String?
+  tasks     Task[]
+  documents Document[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([tenantId, stage])
+}
+
+// --------- Documentos ---------
+
+model Document {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  title      String
+  kind       String    @default("note")
+  content    String    @default("")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+// --------- Auditoria / eventos ---------
+
+model EventLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  type      String
+  payload   String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, type, createdAt])
+}
+
+// --------- ORION Budget Control ---------
+
+model BudgetConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  monthlyLimitClp Int      @default(10000)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}
+
+model ApiUsage {
+  id               String   @id @default(cuid())
+  tenantId         String
+  service          String
+  endpoint         String?
+  estimatedCostClp Float    @default(0)
+  executor         String?
+  result           String?
+  createdAt        DateTime @default(now())
+
+  @@index([tenantId, service, createdAt])
+}
