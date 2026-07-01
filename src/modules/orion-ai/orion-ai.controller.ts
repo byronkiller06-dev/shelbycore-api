@@ -149,6 +149,11 @@ export class OrionAiController {
 
   // ─── Places ───────────────────────────────────────────────────
 
+  @Get('places-status')
+  placesStatus() {
+    return this.places.keyStatus();
+  }
+
   @Post('search-places')
   searchPlaces(@Body() dto: SearchPlacesDto) {
     return this.places.searchBusinesses(dto.query, dto.location, dto.limit ?? 20);

@@ -67,16 +67,19 @@ export class OrionAiService {
     });
   }
 
-  async findProspects(industry: string, location: string, count = 8): Promise<unknown[]> {
-    const res = await this.generate({
-      prompt: `Genera exactamente ${count} negocios del rubro "${industry}" en "${location}" que necesiten tecnología de ShelbyCore AI. Devuelve solo el JSON array, sin texto adicional.`,
-      system: SystemPrompts.prospectFinder(),
-      config: { json: true, temperature: 0.7 },
-    });
-    try {
-      const text = res.text.replace(/```json|```/g, '').trim();
-      return JSON.parse(text) as unknown[];
-    } catch { return []; }
+  /**
+   * BLOCKED: ORION never invents companies. Use /orion/search-places (OpenStreetMap)
+   * to get real, verified businesses. This method exists only to return a clear error.
+   */
+  findProspects(_industry: string, _location: string, _count = 8): Promise<never> {
+    throw new HttpException(
+      {
+        error: 'AI_INVENTION_BLOCKED',
+        message: 'ORION no inventa empresas. Usa /orion/search-places para obtener negocios reales de OpenStreetMap.',
+        useInstead: 'POST /api/orion/search-places',
+      },
+      HttpStatus.GONE,
+    );
   }
 
   async analyzeCompany(data: { name: string; company?: string; industry?: string; location?: string; notes?: string }, productCatalog = ''): Promise<unknown> {
