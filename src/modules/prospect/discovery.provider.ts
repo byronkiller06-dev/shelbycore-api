@@ -49,7 +49,18 @@ export class GooglePlacesProvider implements DiscoveryProvider {
     const term = `${keyword || SERVICE_QUERY[service] || service} en ${city}`;
     const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(term)}&language=es&key=${this.key}`;
     const res = await fetch(url);
-    const data = (await res.json()) as { results?: Array<{ place_id: string; name: string; formatted_address?: string; types?: string[] }> };
+    const data = (await res.json()) as {
+      status: string;
+      error_message?: string;
+      results?: Array<{ place_id: string; name: string; formatted_address?: string; types?: string[] }>;
+    };
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      const msg = `Google Places API error: ${data.status}${data.error_message ? ' — ' + data.error_message : ''}`;
+      console.error('[GooglePlacesProvider]', msg);
+      throw new Error(msg);
+    }
+
     const top = (data.results ?? []).slice(0, 6);
 
     const out: DiscoveredCompany[] = [];
