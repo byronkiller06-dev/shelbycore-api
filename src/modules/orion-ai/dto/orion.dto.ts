@@ -66,6 +66,15 @@ export class CommercialAnalysisDto {
   @IsString() customerId!: string;
 }
 
+export class ObjectionResponseDto {
+  @IsString() customerId!: string;
+  @IsString() objectionText!: string;
+}
+
+export class ExplainDto {
+  @IsString() customerId!: string;
+}
+
 export class AssistDto {
   @IsString() prompt!: string;
   @IsIn(['admin', 'worker']) audience!: 'admin' | 'worker';

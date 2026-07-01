@@ -4,6 +4,8 @@ import { ProductsService } from '../products/products.service';
 import { OrionAiService } from './orion-ai.service';
 import { SystemPrompts } from './prompts/system-prompts';
 
+// ─── Interfaces internas ───────────────────────────────────────
+
 interface BusinessAnalysis {
   industry: string; estimatedSize: string; economicPotential: string;
   shelbyCompatibility: number; urgencySignals: string[]; painPoints: string[];
@@ -11,8 +13,10 @@ interface BusinessAnalysis {
 interface CommercialDecision { worthSelling: boolean; reason: string; confidence: number; }
 interface SelectedStrategy { type: string; name: string; approach: string; reason: string; openingLine: string; }
 interface LeadScoreMetrics { closeProbability: number; urgency: string; economicValue: number; estimatedROI: string; priority: string; effortRequired: string; }
+interface Objection { objection: string; response: string; priority: string; }
+interface SmartFollowup { recommendedDays: number; method: string; reason: string; suggestedMessage: string; }
 
-interface CommercialResult {
+export interface CommercialResult {
   businessAnalysis: BusinessAnalysis;
   commercialDecision: CommercialDecision;
   selectedStrategy: SelectedStrategy;
@@ -21,6 +25,20 @@ interface CommercialResult {
   salesBrief: string;
   nextAction: string;
   riskFactors: string[];
+  topObjections: Objection[];
+  smartFollowup: SmartFollowup;
+  whyThisProduct: string;
+}
+
+export interface LearningStats {
+  totalAnalyses: number;
+  last7Days: number;
+  strategyCounts: Record<string, number>;
+  topStrategy: string;
+  totalCustomers: number;
+  convertedCustomers: number;
+  conversionRate: number;
+  worthSkipped: number;
 }
 
 @Injectable()
@@ -33,6 +51,8 @@ export class CommercialEngineService {
     private readonly orion: OrionAiService,
   ) {}
 
+  // ─── Análisis completo ────────────────────────────────────────
+
   async analyze(tenantId: string, customerId: string): Promise<CommercialResult> {
     const customer = await this.prisma.customer.findFirst({ where: { id: customerId, tenantId } });
     if (!customer) throw new Error(`Customer ${customerId} not found`);
@@ -43,13 +63,14 @@ export class CommercialEngineService {
       this.products.buildCatalogContext(tenantId),
     ]);
 
+    const customerCtx = this.buildCustomerContext(customer);
+    const tasksCtx = this.buildTasksContext(tasks);
+    const packageCtx = this.buildPackageContext(pkg);
+
     const prompt = [
-      'CONTEXTO COMPLETO DEL PROSPECTO:\n',
-      this.buildCustomerContext(customer),
-      '\nHISTORIAL DE SEGUIMIENTOS:\n',
-      this.buildTasksContext(tasks),
-      '\nPAQUETE / ANÁLISIS PREVIO:\n',
-      this.buildPackageContext(pkg),
+      'CONTEXTO COMPLETO DEL PROSPECTO:\n', customerCtx,
+      '\nHISTORIAL DE SEGUIMIENTOS:\n', tasksCtx,
+      '\nPAQUETE / ANÁLISIS PREVIO:\n', packageCtx,
       '\nToma la decisión comercial completa. Devuelve solo el JSON, sin texto adicional.',
     ].join('');
 
@@ -68,9 +89,107 @@ export class CommercialEngineService {
       result = this.buildFallback(customer);
     }
 
-    await this.saveLeadScore(tenantId, customerId, result);
+    await Promise.all([
+      this.saveLeadScore(tenantId, customerId, result),
+      this.logEvent(tenantId, 'COMMERCIAL_ANALYSIS', {
+        customerId, strategyType: result.selectedStrategy?.type ?? '',
+        worthSelling: result.commercialDecision?.worthSelling,
+        closeProbability: result.leadScore?.closeProbability,
+      }),
+    ]);
+
     return result;
   }
+
+  // ─── Manejo de objeciones ─────────────────────────────────────
+
+  async handleObjection(tenantId: string, customerId: string, objectionText: string): Promise<{ response: string }> {
+    const customer = await this.prisma.customer.findFirst({ where: { id: customerId, tenantId } });
+    const catalogContext = await this.products.buildCatalogContext(tenantId);
+    const customerCtx = customer ? this.buildCustomerContext(customer) : 'Prospecto sin datos adicionales';
+
+    const res = await this.orion.generate({
+      prompt: `Objeción del cliente: "${objectionText}"\n\nGenera una respuesta efectiva y personalizada.`,
+      system: SystemPrompts.objectionHandler(customerCtx, catalogContext),
+      config: { temperature: 0.5 },
+    });
+
+    await this.logEvent(tenantId, 'OBJECTION_HANDLED', { customerId, objection: objectionText });
+    return { response: res.text.trim() };
+  }
+
+  // ─── Modo explicación ─────────────────────────────────────────
+
+  async explain(tenantId: string, customerId: string): Promise<{ explanation: string }> {
+    const [customer, leadScore, pkg] = await Promise.all([
+      this.prisma.customer.findFirst({ where: { id: customerId, tenantId } }),
+      this.prisma.leadScore.findFirst({ where: { customerId, tenantId } }),
+      this.prisma.prospectPackage.findFirst({ where: { customerId, tenantId } }),
+    ]);
+
+    const customerCtx = customer ? this.buildCustomerContext(customer) : 'Sin datos del prospecto';
+    const recommendationCtx = this.buildRecommendationContext(leadScore, pkg);
+
+    const res = await this.orion.generate({
+      prompt: 'Explica en detalle la recomendación comercial para este prospecto.',
+      system: SystemPrompts.explainRecommendation(customerCtx, recommendationCtx),
+      config: { temperature: 0.4 },
+    });
+
+    const explanation = res.text.trim();
+
+    // Save explanation back to LeadScore for future loads (avoid re-calling Gemini)
+    if (leadScore) {
+      try {
+        await this.prisma.leadScore.update({
+          where: { customerId },
+          data: { whyExplanation: explanation },
+        });
+      } catch { /* non-critical */ }
+    }
+
+    await this.logEvent(tenantId, 'EXPLANATION_GENERATED', { customerId });
+    return { explanation };
+  }
+
+  // ─── Learning stats ───────────────────────────────────────────
+
+  async getLearningStats(tenantId: string): Promise<LearningStats> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000);
+
+    const [allAnalyses, recentAnalyses, totalCustomers, convertedCustomers] = await Promise.all([
+      this.prisma.eventLog.findMany({ where: { tenantId, type: 'COMMERCIAL_ANALYSIS' }, select: { payload: true, createdAt: true } }),
+      this.prisma.eventLog.count({ where: { tenantId, type: 'COMMERCIAL_ANALYSIS', createdAt: { gte: sevenDaysAgo } } }),
+      this.prisma.customer.count({ where: { tenantId } }),
+      this.prisma.customer.count({ where: { tenantId, stage: 'CUSTOMER' } }),
+    ]);
+
+    const strategyCounts: Record<string, number> = {};
+    let worthSkipped = 0;
+
+    for (const log of allAnalyses) {
+      try {
+        const payload = JSON.parse(log.payload ?? '{}') as { strategyType?: string; worthSelling?: boolean };
+        if (payload.strategyType) strategyCounts[payload.strategyType] = (strategyCounts[payload.strategyType] ?? 0) + 1;
+        if (payload.worthSelling === false) worthSkipped++;
+      } catch { /* ignore malformed */ }
+    }
+
+    const topStrategy = Object.entries(strategyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'ninguna';
+
+    return {
+      totalAnalyses: allAnalyses.length,
+      last7Days: recentAnalyses,
+      strategyCounts,
+      topStrategy,
+      totalCustomers,
+      convertedCustomers,
+      conversionRate: totalCustomers > 0 ? convertedCustomers / totalCustomers : 0,
+      worthSkipped,
+    };
+  }
+
+  // ─── Lectura simple ───────────────────────────────────────────
 
   getLeadScore(tenantId: string, customerId: string) {
     return this.prisma.leadScore.findFirst({ where: { customerId, tenantId } });
@@ -78,7 +197,7 @@ export class CommercialEngineService {
 
   // ─── Context builders ──────────────────────────────────────────
 
-  private buildCustomerContext(c: {
+  buildCustomerContext(c: {
     company?: string | null; name: string; product?: string | null; stage: string;
     value: number; score: number; notes?: string | null; createdAt: Date;
   }): string {
@@ -92,10 +211,10 @@ export class CommercialEngineService {
       `Contacto: ${c.name}`,
       `Rubro: ${c.product || 'No especificado'}`,
       `Etapa CRM: ${stageMap[c.stage] ?? c.stage}`,
-      `Valor estimado del negocio: $${c.value.toLocaleString('es-MX')} MXN`,
+      `Valor estimado: $${c.value.toLocaleString('es-MX')} MXN`,
       `Score actual: ${Math.round((c.score ?? 0) * 100)}%`,
-      `En el CRM desde: ${daysSince} día${daysSince !== 1 ? 's' : ''}`,
-      `Notas y contexto: ${c.notes || 'Sin notas adicionales'}`,
+      `En CRM desde: ${daysSince} día${daysSince !== 1 ? 's' : ''}`,
+      `Notas: ${c.notes || 'Sin notas adicionales'}`,
     ].join('\n');
   }
 
@@ -111,16 +230,37 @@ export class CommercialEngineService {
     packageName: string; mainProduct: string; complementary: string;
     estimatedValue: number; suggestedStrategy: string; explanation: string;
   } | null): string {
-    if (!pkg) return 'Sin paquete registrado. El Motor Comercial puede crear uno nuevo.';
+    if (!pkg) return 'Sin paquete registrado.';
     const comps = this.parseSafe(pkg.complementary) as string[];
     return [
       `Paquete: ${pkg.packageName}`,
-      `Producto principal: ${pkg.mainProduct}`,
+      `Principal: ${pkg.mainProduct}`,
       `Complementarios: ${comps.length ? comps.join(', ') : 'ninguno'}`,
-      `Valor estimado: $${pkg.estimatedValue.toLocaleString('es-MX')}`,
+      `Valor: $${pkg.estimatedValue.toLocaleString('es-MX')}`,
       `Estrategia previa: ${pkg.suggestedStrategy || 'no definida'}`,
-      `Explicación: ${pkg.explanation || 'no disponible'}`,
     ].join('\n');
+  }
+
+  private buildRecommendationContext(
+    ls: { strategyName: string; strategyApproach: string; strategyReason: string; salesBrief: string; estimatedROI: string; economicValue: number; closeProbability: number; } | null,
+    pkg: { packageName: string; mainProduct: string; complementary: string; estimatedValue: number; explanation: string; } | null,
+  ): string {
+    const lines: string[] = [];
+    if (pkg) {
+      const comps = this.parseSafe(pkg.complementary) as string[];
+      lines.push(`Paquete recomendado: ${pkg.packageName}`);
+      lines.push(`Producto principal: ${pkg.mainProduct}`);
+      if (comps.length) lines.push(`Complementarios: ${comps.join(', ')}`);
+      lines.push(`Valor estimado: $${pkg.estimatedValue.toLocaleString('es-MX')}`);
+      lines.push(`Justificación del paquete: ${pkg.explanation}`);
+    }
+    if (ls) {
+      lines.push(`Estrategia: ${ls.strategyName} — ${ls.strategyApproach}`);
+      lines.push(`ROI estimado: ${ls.estimatedROI}`);
+      lines.push(`Probabilidad de cierre: ${Math.round(ls.closeProbability * 100)}%`);
+      lines.push(`Brief comercial: ${ls.salesBrief}`);
+    }
+    return lines.join('\n') || 'Sin recomendación previa registrada.';
   }
 
   // ─── Persist ──────────────────────────────────────────────────
@@ -156,6 +296,9 @@ export class CommercialEngineService {
         estimatedSize:       String(ba.estimatedSize ?? ''),
         economicPotential:   String(ba.economicPotential ?? ''),
         shelbyCompatibility: Number(ba.shelbyCompatibility ?? 0),
+        topObjections:       JSON.stringify(r.topObjections ?? []),
+        smartFollowup:       JSON.stringify(r.smartFollowup ?? {}),
+        whyExplanation:      String(r.whyThisProduct ?? ''),
       };
 
       await this.prisma.leadScore.upsert({
@@ -168,30 +311,31 @@ export class CommercialEngineService {
     }
   }
 
+  private async logEvent(tenantId: string, type: string, payload: Record<string, unknown>): Promise<void> {
+    try {
+      await this.prisma.eventLog.create({ data: { tenantId, type, payload: JSON.stringify(payload) } });
+    } catch { /* non-critical */ }
+  }
+
   // ─── Fallback ─────────────────────────────────────────────────
 
   private buildFallback(c: { product?: string | null; value: number }): CommercialResult {
     return {
-      businessAnalysis: {
-        industry: c.product ?? '', estimatedSize: 'pequeño',
-        economicPotential: 'medio', shelbyCompatibility: 0.7,
-        urgencySignals: [], painPoints: [],
-      },
+      businessAnalysis: { industry: c.product ?? '', estimatedSize: 'pequeño', economicPotential: 'medio', shelbyCompatibility: 0.7, urgencySignals: [], painPoints: [] },
       commercialDecision: { worthSelling: true, reason: 'Prospecto activo en pipeline', confidence: 0.5 },
-      selectedStrategy: {
-        type: 'venta_consultiva', name: 'Venta Consultiva',
-        approach: 'Iniciar con una conversación de descubrimiento para entender las necesidades del negocio.',
-        reason: 'Información limitada disponible; el enfoque consultivo permite explorar y adaptar.',
-        openingLine: '¿Cuáles son los mayores desafíos que enfrenta tu negocio hoy en día?',
-      },
-      leadScore: {
-        closeProbability: 0.5, urgency: 'media', economicValue: c.value ?? 0,
-        estimatedROI: 'Por determinar en primera reunión', priority: 'NORMAL', effortRequired: 'medio',
-      },
-      benefitsToHighlight: ['Ahorro de tiempo en operaciones', 'Control total del negocio', 'Automatización de procesos clave'],
-      salesBrief: 'Contactar para primera reunión de descubrimiento. Escuchar antes de presentar.',
-      nextAction: 'Primera llamada de descubrimiento en 24-48 horas.',
-      riskFactors: ['Información insuficiente del prospecto para análisis profundo'],
+      selectedStrategy: { type: 'venta_consultiva', name: 'Venta Consultiva', approach: 'Iniciar con conversación de descubrimiento.', reason: 'Información limitada; enfoque consultivo primero.', openingLine: '¿Cuáles son los mayores desafíos de tu negocio hoy?' },
+      leadScore: { closeProbability: 0.5, urgency: 'media', economicValue: c.value ?? 0, estimatedROI: 'Por determinar', priority: 'NORMAL', effortRequired: 'medio' },
+      benefitsToHighlight: ['Ahorro de tiempo', 'Control del negocio', 'Automatización de procesos'],
+      salesBrief: 'Primera reunión de descubrimiento. Escuchar antes de presentar.',
+      nextAction: 'Contacto inicial en 24-48 horas.',
+      riskFactors: ['Información insuficiente del prospecto'],
+      topObjections: [
+        { objection: 'Es muy caro', response: 'Entiendo la preocupación. ¿Podemos revisar juntos cuánto le cuesta actualmente operar sin este sistema? Generalmente el ahorro supera la inversión en los primeros 3 meses.', priority: 'alta' },
+        { objection: 'No es el momento', response: 'Lo entiendo. ¿Cuándo sería el momento ideal? Podemos programar una demo corta ahora para que tengas la información cuando estés listo.', priority: 'media' },
+        { objection: '¿Qué soporte ofrecen?', response: 'Incluimos soporte por WhatsApp, capacitación inicial y actualizaciones sin costo adicional. Nunca estás solo en la implementación.', priority: 'baja' },
+      ],
+      smartFollowup: { recommendedDays: 3, method: 'whatsapp', reason: 'WhatsApp es el canal más directo para primer contacto con pequeñas empresas.', suggestedMessage: 'Hola, ¿tuviste oportunidad de revisar la información que te compartí? Tengo una demo lista de 15 min que puede ser muy útil para tu negocio.' },
+      whyThisProduct: 'La recomendación se basó en los problemas detectados en el negocio y el catálogo de productos disponibles. El objetivo es resolver el problema principal con la inversión más ajustada posible.',
     };
   }
 

@@ -1,6 +1,10 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { OrionAiService } from './orion-ai.service';
-import { AnalyzeDto, AskDto, AssistDto, FindProspectsDto, AnalyzeCompanyDto, GeneratePitchDto, SearchPlacesDto, CommercialAnalysisDto } from './dto/orion.dto';
+import {
+  AnalyzeDto, AskDto, AssistDto, FindProspectsDto,
+  AnalyzeCompanyDto, GeneratePitchDto, SearchPlacesDto,
+  CommercialAnalysisDto, ObjectionResponseDto, ExplainDto,
+} from './dto/orion.dto';
 import { JwtAuthGuard } from '../../shared/auth/guards/jwt-auth.guard';
 import { PlacesService } from './places.service';
 import { ProductsService } from '../products/products.service';
@@ -110,7 +114,7 @@ export class OrionAiController {
     return this.packages.getForCustomer(tenantId, customerId);
   }
 
-  // ─── Motor Comercial ──────────────────────────────────────────
+  // ─── Motor Comercial Autónomo ──────────────────────────────────
 
   @Post('commercial-analysis')
   commercialAnalysis(@CurrentTenant() tenantId: string, @Body() dto: CommercialAnalysisDto) {
@@ -120,6 +124,27 @@ export class OrionAiController {
   @Get('lead-score/:customerId')
   getLeadScore(@CurrentTenant() tenantId: string, @Param('customerId') customerId: string) {
     return this.commercialEngine.getLeadScore(tenantId, customerId);
+  }
+
+  // ─── Objeciones ───────────────────────────────────────────────
+
+  @Post('objection-response')
+  handleObjection(@CurrentTenant() tenantId: string, @Body() dto: ObjectionResponseDto) {
+    return this.commercialEngine.handleObjection(tenantId, dto.customerId, dto.objectionText);
+  }
+
+  // ─── Modo explicación ─────────────────────────────────────────
+
+  @Post('explain')
+  explain(@CurrentTenant() tenantId: string, @Body() dto: ExplainDto) {
+    return this.commercialEngine.explain(tenantId, dto.customerId);
+  }
+
+  // ─── Aprendizaje ──────────────────────────────────────────────
+
+  @Get('learning/stats')
+  learningStats(@CurrentTenant() tenantId: string) {
+    return this.commercialEngine.getLearningStats(tenantId);
   }
 
   // ─── Places ───────────────────────────────────────────────────

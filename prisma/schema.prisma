@@ -237,6 +237,10 @@ model LeadScore {
   estimatedSize       String   @default("")
   economicPotential   String   @default("")
   shelbyCompatibility Float    @default(0)
+  // Parte 2 — Objeciones, seguimiento inteligente, modo explicación
+  topObjections       String   @default("[]")
+  smartFollowup       String   @default("{}")
+  whyExplanation      String   @default("")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
