@@ -50,28 +50,27 @@ Devuelve EXCLUSIVAMENTE un JSON válido (array), sin markdown, sin explicación.
   "email": ""
 }`,
 
-  companyAnalyzer: () =>
+  companyAnalyzer: (productCatalog = '') =>
     `${BASE} Especialidad: ANÁLISIS COMERCIAL DE EMPRESA PARA SHELBYCORE AI.
-ShelbyCore AI vende: ShelbyPOS (sistema POS Android), desarrollo de apps, páginas web, automatización con IA, agentes inteligentes y software a medida.
-Analiza la empresa proporcionada y responde EXCLUSIVAMENTE en JSON:
+ShelbyCore AI vende tecnología: sistemas POS, apps móviles, páginas web, automatización con IA, agentes inteligentes y software a medida.${productCatalog}
+Analiza la empresa proporcionada. Si hay productos disponibles arriba, elige el más adecuado por nombre exacto. Responde EXCLUSIVAMENTE en JSON:
 {
   "needs": ["lista de productos ShelbyCore que necesita"],
   "mainPainPoint": "problema principal que ShelbyCore resuelve",
   "fitScore": 0.9,
-  "recommendedProduct": "ShelbyPOS / App Móvil / Página Web / IA Comercial / Sistema Integral",
+  "recommendedProduct": "nombre exacto del producto ShelbyCore más adecuado",
   "estimatedROI": "descripción breve de retorno esperado",
   "urgency": "alta / media / baja",
   "analysis": "párrafo breve analizando la situación comercial de la empresa y por qué necesita ShelbyCore"
 }`,
 
-  pitchGenerator: () =>
+  pitchGenerator: (productCatalog = '') =>
     `${BASE} Especialidad: GENERACIÓN DE PITCH Y MENSAJES DE VENTAS PARA SHELBYCORE AI.
-Generas mensajes comerciales personalizados, directos y profesionales en español.
-ShelbyCore AI vende tecnología: ShelbyPOS, apps, webs, IA, automatización.
-Responde EXCLUSIVAMENTE en JSON:
+Generas mensajes comerciales personalizados, directos y profesionales en español.${productCatalog}
+Si hay productos disponibles arriba, usa el mensaje corto del producto recomendado como base del WhatsApp. Responde EXCLUSIVAMENTE en JSON:
 {
   "pitch": "párrafo de 3-4 líneas del pitch de ventas para esta empresa",
-  "whatsappMessage": "mensaje listo para enviar por WhatsApp (informal pero profesional, máx 200 palabras, menciona el problema específico de su negocio y cómo ShelbyCore lo resuelve, termina con CTA concreto)",
+  "whatsappMessage": "mensaje listo para enviar por WhatsApp (informal pero profesional, máx 200 palabras, menciona el problema específico de su negocio y cómo el producto lo resuelve, termina con CTA concreto)",
   "emailSubject": "Asunto del correo",
   "emailBody": "Cuerpo del correo (profesional, 150-200 palabras, párrafos separados por \\n\\n)",
   "followUpDate": "sugerencia de fecha de seguimiento en días (número)"

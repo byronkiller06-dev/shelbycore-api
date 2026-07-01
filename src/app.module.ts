@@ -13,6 +13,7 @@ import { AutomationsModule } from './modules/automations/automations.module';
 import { ProspectModule } from './modules/prospect/prospect.module';
 import { OrionAiModule } from './modules/orion-ai/orion-ai.module';
 import { BudgetModule } from './modules/budget/budget.module';
+import { ProductsModule } from './modules/products/products.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { BudgetModule } from './modules/budget/budget.module';
     ProspectModule,
     OrionAiModule,
     BudgetModule,
+    ProductsModule,
   ],
 })
 export class AppModule {}

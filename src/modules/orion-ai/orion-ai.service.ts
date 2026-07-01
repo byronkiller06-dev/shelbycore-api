@@ -79,11 +79,11 @@ export class OrionAiService {
     } catch { return []; }
   }
 
-  async analyzeCompany(data: { name: string; company?: string; industry?: string; location?: string; notes?: string }): Promise<unknown> {
+  async analyzeCompany(data: { name: string; company?: string; industry?: string; location?: string; notes?: string }, productCatalog = ''): Promise<unknown> {
     const prompt = `Empresa: ${data.company || data.name}\nContacto: ${data.name}\nRubro: ${data.industry || 'desconocido'}\nUbicación: ${data.location || 'México'}\nNotas: ${data.notes || 'sin notas adicionales'}\n\nAnaliza y devuelve solo el JSON, sin texto adicional.`;
     const res = await this.generate({
       prompt,
-      system: SystemPrompts.companyAnalyzer(),
+      system: SystemPrompts.companyAnalyzer(productCatalog),
       config: { json: true, temperature: 0.4 },
     });
     try {
@@ -92,11 +92,11 @@ export class OrionAiService {
     } catch { return { analysis: res.text, fitScore: 0.7, needs: ['ShelbyCore AI'], recommendedProduct: 'ShelbyCore AI', urgency: 'media' }; }
   }
 
-  async generatePitch(data: { name: string; company?: string; industry?: string; location?: string; analysis?: string; recommendedProduct?: string; painPoint?: string }): Promise<unknown> {
+  async generatePitch(data: { name: string; company?: string; industry?: string; location?: string; analysis?: string; recommendedProduct?: string; painPoint?: string }, productCatalog = ''): Promise<unknown> {
     const prompt = `Empresa: ${data.company || data.name}\nRubro: ${data.industry || 'general'}\nUbicación: ${data.location || 'México'}\nProducto recomendado: ${data.recommendedProduct || 'ShelbyCore AI'}\nProblema principal: ${data.painPoint || 'no especificado'}\nAnálisis: ${data.analysis || 'empresa sin análisis previo'}\n\nGenera el pitch y mensajes. Devuelve solo el JSON, sin texto adicional.`;
     const res = await this.generate({
       prompt,
-      system: SystemPrompts.pitchGenerator(),
+      system: SystemPrompts.pitchGenerator(productCatalog),
       config: { json: true, temperature: 0.6 },
     });
     try {

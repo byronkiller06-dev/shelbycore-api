@@ -20,21 +20,22 @@ model Organization {
 }
 
 model Tenant {
-  id        String     @id @default(cuid())
+  id        String          @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id])
+  org       Organization    @relation(fields: [orgId], references: [id])
   name      String
-  slug      String     @unique
+  slug      String          @unique
   branding  String?
-  plan      String     @default("BASIC")
-  status    String     @default("ACTIVE")
+  plan      String          @default("BASIC")
+  status    String          @default("ACTIVE")
   users     User[]
   roles     Role[]
   agents    Agent[]
   customers Customer[]
   tasks     Task[]
   documents Document[]
-  createdAt DateTime   @default(now())
+  products  ShelbyProduct[]
+  createdAt DateTime        @default(now())
 
   @@index([orgId])
 }
@@ -154,6 +155,29 @@ model EventLog {
   createdAt DateTime @default(now())
 
   @@index([tenantId, type, createdAt])
+}
+
+// --------- Base de Productos ShelbyCore ---------
+
+model ShelbyProduct {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  name         String
+  description  String   @default("")
+  idealClient  String   @default("")
+  targetRubros String   @default("[]")
+  problems     String   @default("[]")
+  benefits     String   @default("[]")
+  price        String   @default("")
+  objections   String   @default("[]")
+  shortMessage String   @default("")
+  longMessage  String   @default("")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, active])
 }
 
 // --------- ORION Budget Control ---------

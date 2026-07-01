@@ -3,6 +3,8 @@ import { OrionAiService } from './orion-ai.service';
 import { AnalyzeDto, AskDto, AssistDto, FindProspectsDto, AnalyzeCompanyDto, GeneratePitchDto, SearchPlacesDto } from './dto/orion.dto';
 import { JwtAuthGuard } from '../../shared/auth/guards/jwt-auth.guard';
 import { PlacesService } from './places.service';
+import { ProductsService } from '../products/products.service';
+import { CurrentTenant } from '../../shared/auth/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('orion')
@@ -10,6 +12,7 @@ export class OrionAiController {
   constructor(
     private readonly orion: OrionAiService,
     private readonly places: PlacesService,
+    private readonly products: ProductsService,
   ) {}
 
   @Get('status')
@@ -39,13 +42,21 @@ export class OrionAiController {
   }
 
   @Post('analyze-company')
-  analyzeCompany(@Body() dto: AnalyzeCompanyDto) {
-    return this.orion.analyzeCompany({ name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, notes: dto.notes });
+  async analyzeCompany(@CurrentTenant() tenantId: string, @Body() dto: AnalyzeCompanyDto) {
+    const catalog = await this.products.buildCatalogContext(tenantId);
+    return this.orion.analyzeCompany(
+      { name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, notes: dto.notes },
+      catalog,
+    );
   }
 
   @Post('generate-pitch')
-  generatePitch(@Body() dto: GeneratePitchDto) {
-    return this.orion.generatePitch({ name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, analysis: dto.analysis, recommendedProduct: dto.recommendedProduct, painPoint: dto.painPoint });
+  async generatePitch(@CurrentTenant() tenantId: string, @Body() dto: GeneratePitchDto) {
+    const catalog = await this.products.buildCatalogContext(tenantId);
+    return this.orion.generatePitch(
+      { name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, analysis: dto.analysis, recommendedProduct: dto.recommendedProduct, painPoint: dto.painPoint },
+      catalog,
+    );
   }
 
   @Post('search-places')
