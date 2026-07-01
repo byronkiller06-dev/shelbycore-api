@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { OrionAiService } from './orion-ai.service';
-import { AnalyzeDto, AskDto, AssistDto, FindProspectsDto, AnalyzeCompanyDto, GeneratePitchDto, SearchPlacesDto } from './dto/orion.dto';
+import { AnalyzeDto, AskDto, AssistDto, FindProspectsDto, AnalyzeCompanyDto, GeneratePitchDto, SearchPlacesDto, CommercialAnalysisDto } from './dto/orion.dto';
 import { JwtAuthGuard } from '../../shared/auth/guards/jwt-auth.guard';
 import { PlacesService } from './places.service';
 import { ProductsService } from '../products/products.service';
 import { PackagesService } from '../products/packages.service';
+import { CommercialEngineService } from './commercial-engine.service';
 import { CurrentTenant } from '../../shared/auth/decorators/current-user.decorator';
 import { Logger } from '@nestjs/common';
 
@@ -18,6 +19,7 @@ export class OrionAiController {
     private readonly places: PlacesService,
     private readonly products: ProductsService,
     private readonly packages: PackagesService,
+    private readonly commercialEngine: CommercialEngineService,
   ) {}
 
   @Get('status')
@@ -54,7 +56,6 @@ export class OrionAiController {
       catalog,
     ) as Record<string, unknown>;
 
-    // Auto-save package to PostgreSQL if customerId provided
     if (dto.customerId) {
       try {
         await this.packages.upsert({
@@ -80,7 +81,6 @@ export class OrionAiController {
       catalog,
     ) as Record<string, unknown>;
 
-    // Auto-update package messages in PostgreSQL
     if (dto.customerId) {
       try {
         const existing = await this.packages.getForCustomer(tenantId, dto.customerId);
@@ -109,6 +109,20 @@ export class OrionAiController {
   getPackage(@CurrentTenant() tenantId: string, @Param('customerId') customerId: string) {
     return this.packages.getForCustomer(tenantId, customerId);
   }
+
+  // ─── Motor Comercial ──────────────────────────────────────────
+
+  @Post('commercial-analysis')
+  commercialAnalysis(@CurrentTenant() tenantId: string, @Body() dto: CommercialAnalysisDto) {
+    return this.commercialEngine.analyze(tenantId, dto.customerId);
+  }
+
+  @Get('lead-score/:customerId')
+  getLeadScore(@CurrentTenant() tenantId: string, @Param('customerId') customerId: string) {
+    return this.commercialEngine.getLeadScore(tenantId, customerId);
+  }
+
+  // ─── Places ───────────────────────────────────────────────────
 
   @Post('search-places')
   searchPlaces(@Body() dto: SearchPlacesDto) {

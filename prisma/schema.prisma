@@ -123,6 +123,7 @@ model Customer {
   tasks     Task[]
   documents Document[]
   package   ProspectPackage?
+  leadScore LeadScore?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -200,6 +201,46 @@ model ShelbyProduct {
   updatedAt    DateTime @updatedAt
 
   @@index([tenantId, active])
+}
+
+// --------- ORION Motor Comercial ---------
+
+model LeadScore {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  customerId          String   @unique
+  customer            Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  // Decisión comercial
+  worthSelling        Boolean  @default(true)
+  decisionReason      String   @default("")
+  decisionConfidence  Float    @default(0)
+  // Métricas del lead
+  closeProbability    Float    @default(0)
+  urgency             String   @default("media")
+  economicValue       Float    @default(0)
+  estimatedROI        String   @default("")
+  priority            String   @default("NORMAL")
+  effortRequired      String   @default("medio")
+  // Estrategia seleccionada
+  strategyType        String   @default("")
+  strategyName        String   @default("")
+  strategyApproach    String   @default("")
+  strategyReason      String   @default("")
+  openingLine         String   @default("")
+  // Contenido comercial
+  benefitsToHighlight String   @default("[]")
+  salesBrief          String   @default("")
+  nextAction          String   @default("")
+  riskFactors         String   @default("[]")
+  // Análisis de negocio
+  industry            String   @default("")
+  estimatedSize       String   @default("")
+  economicPotential   String   @default("")
+  shelbyCompatibility Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 // --------- ORION Budget Control ---------

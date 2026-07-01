@@ -62,6 +62,10 @@ export class SearchPlacesDto {
   @IsOptional() @IsNumber() @Min(1) @Max(30) limit?: number;
 }
 
+export class CommercialAnalysisDto {
+  @IsString() customerId!: string;
+}
+
 export class AssistDto {
   @IsString() prompt!: string;
   @IsIn(['admin', 'worker']) audience!: 'admin' | 'worker';
