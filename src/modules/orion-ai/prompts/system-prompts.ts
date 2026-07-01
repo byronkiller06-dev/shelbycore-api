@@ -51,28 +51,36 @@ Devuelve EXCLUSIVAMENTE un JSON válido (array), sin markdown, sin explicación.
 }`,
 
   companyAnalyzer: (productCatalog = '') =>
-    `${BASE} Especialidad: ANÁLISIS COMERCIAL DE EMPRESA PARA SHELBYCORE AI.
+    `${BASE} Especialidad: ANÁLISIS COMERCIAL Y CONSTRUCCIÓN DE PAQUETES PARA SHELBYCORE AI.
 ShelbyCore AI vende tecnología: sistemas POS, apps móviles, páginas web, automatización con IA, agentes inteligentes y software a medida.${productCatalog}
-Analiza la empresa proporcionada. Si hay productos disponibles arriba, elige el más adecuado por nombre exacto. Responde EXCLUSIVAMENTE en JSON:
+Analiza la empresa y construye el PAQUETE ÓPTIMO combinando productos cuando tenga sentido (ej: POS + App + Web para un restaurante moderno). Si hay productos en el catálogo, úsalos por nombre exacto. Si solo aplica uno, los complementarios van vacíos.
+Responde EXCLUSIVAMENTE en JSON válido, sin markdown:
 {
-  "needs": ["lista de productos ShelbyCore que necesita"],
+  "needs": ["necesidades detectadas"],
   "mainPainPoint": "problema principal que ShelbyCore resuelve",
   "fitScore": 0.9,
-  "recommendedProduct": "nombre exacto del producto ShelbyCore más adecuado",
-  "estimatedROI": "descripción breve de retorno esperado",
+  "mainProduct": "nombre exacto del producto principal",
+  "complementaryProducts": ["producto complementario 1", "producto complementario 2"],
+  "packageName": "nombre comercial del paquete (ej: Pack Restaurante Pro, Combo Digital, Plan Básico)",
+  "packageExplanation": "por qué esta combinación específica resuelve los problemas de este negocio (2-3 oraciones)",
+  "estimatedValue": 25000,
+  "suggestedStrategy": "cómo vender: qué presentar primero, cuándo hacer upsell, argumento clave (2-3 oraciones)",
+  "recommendedProduct": "nombre del paquete o producto principal (mismo que packageName si hay combinación)",
+  "estimatedROI": "retorno esperado para el cliente (concreto: tiempo, dinero, eficiencia)",
   "urgency": "alta / media / baja",
-  "analysis": "párrafo breve analizando la situación comercial de la empresa y por qué necesita ShelbyCore"
+  "analysis": "análisis de la situación comercial del negocio y por qué necesita este paquete específico (3-4 oraciones)"
 }`,
 
   pitchGenerator: (productCatalog = '') =>
     `${BASE} Especialidad: GENERACIÓN DE PITCH Y MENSAJES DE VENTAS PARA SHELBYCORE AI.
 Generas mensajes comerciales personalizados, directos y profesionales en español.${productCatalog}
-Si hay productos disponibles arriba, usa el mensaje corto del producto recomendado como base del WhatsApp. Responde EXCLUSIVAMENTE en JSON:
+Si el cliente tiene un paquete (mainProduct + complementaryProducts), el mensaje debe mencionar el paquete completo. Si hay mensaje corto del producto, úsalo como base. Adapta al problema específico del prospecto.
+Responde EXCLUSIVAMENTE en JSON válido, sin markdown:
 {
-  "pitch": "párrafo de 3-4 líneas del pitch de ventas para esta empresa",
-  "whatsappMessage": "mensaje listo para enviar por WhatsApp (informal pero profesional, máx 200 palabras, menciona el problema específico de su negocio y cómo el producto lo resuelve, termina con CTA concreto)",
-  "emailSubject": "Asunto del correo",
-  "emailBody": "Cuerpo del correo (profesional, 150-200 palabras, párrafos separados por \\n\\n)",
-  "followUpDate": "sugerencia de fecha de seguimiento en días (número)"
+  "pitch": "párrafo de 3-4 líneas del pitch del paquete completo",
+  "whatsappMessage": "mensaje WhatsApp (informal, profesional, máx 200 palabras, menciona el paquete y el problema específico del negocio, CTA concreto con número de seguimiento)",
+  "emailSubject": "Asunto del correo (menciona el paquete o el beneficio principal)",
+  "emailBody": "Cuerpo del correo (profesional, 150-200 palabras, párrafos separados por \\n\\n, menciona todos los productos del paquete si aplica)",
+  "followUpDate": 4
 }`,
 };

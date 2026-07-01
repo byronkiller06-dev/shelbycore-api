@@ -1,18 +1,23 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { OrionAiService } from './orion-ai.service';
 import { AnalyzeDto, AskDto, AssistDto, FindProspectsDto, AnalyzeCompanyDto, GeneratePitchDto, SearchPlacesDto } from './dto/orion.dto';
 import { JwtAuthGuard } from '../../shared/auth/guards/jwt-auth.guard';
 import { PlacesService } from './places.service';
 import { ProductsService } from '../products/products.service';
+import { PackagesService } from '../products/packages.service';
 import { CurrentTenant } from '../../shared/auth/decorators/current-user.decorator';
+import { Logger } from '@nestjs/common';
 
 @UseGuards(JwtAuthGuard)
 @Controller('orion')
 export class OrionAiController {
+  private readonly logger = new Logger(OrionAiController.name);
+
   constructor(
     private readonly orion: OrionAiService,
     private readonly places: PlacesService,
     private readonly products: ProductsService,
+    private readonly packages: PackagesService,
   ) {}
 
   @Get('status')
@@ -44,19 +49,65 @@ export class OrionAiController {
   @Post('analyze-company')
   async analyzeCompany(@CurrentTenant() tenantId: string, @Body() dto: AnalyzeCompanyDto) {
     const catalog = await this.products.buildCatalogContext(tenantId);
-    return this.orion.analyzeCompany(
+    const result = await this.orion.analyzeCompany(
       { name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, notes: dto.notes },
       catalog,
-    );
+    ) as Record<string, unknown>;
+
+    // Auto-save package to PostgreSQL if customerId provided
+    if (dto.customerId) {
+      try {
+        await this.packages.upsert({
+          tenantId,
+          customerId: dto.customerId,
+          mainProduct: String(result.mainProduct ?? result.recommendedProduct ?? ''),
+          complementary: (result.complementaryProducts as string[]) ?? [],
+          packageName: String(result.packageName ?? result.recommendedProduct ?? ''),
+          explanation: String(result.packageExplanation ?? result.analysis ?? ''),
+          estimatedValue: Number(result.estimatedValue ?? 0),
+          suggestedStrategy: String(result.suggestedStrategy ?? ''),
+        });
+      } catch (e) { this.logger.warn('Package save failed (non-critical)', e); }
+    }
+    return result;
   }
 
   @Post('generate-pitch')
   async generatePitch(@CurrentTenant() tenantId: string, @Body() dto: GeneratePitchDto) {
     const catalog = await this.products.buildCatalogContext(tenantId);
-    return this.orion.generatePitch(
-      { name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, analysis: dto.analysis, recommendedProduct: dto.recommendedProduct, painPoint: dto.painPoint },
+    const result = await this.orion.generatePitch(
+      { name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, analysis: dto.analysis, recommendedProduct: dto.packageName ?? dto.recommendedProduct, painPoint: dto.painPoint, complementaryProducts: dto.complementaryProducts, estimatedValue: dto.estimatedValue },
       catalog,
-    );
+    ) as Record<string, unknown>;
+
+    // Auto-update package messages in PostgreSQL
+    if (dto.customerId) {
+      try {
+        const existing = await this.packages.getForCustomer(tenantId, dto.customerId);
+        if (existing) {
+          await this.packages.upsert({
+            tenantId,
+            customerId: dto.customerId,
+            mainProduct: existing.mainProduct,
+            complementary: JSON.parse(existing.complementary) as string[],
+            packageName: existing.packageName,
+            explanation: existing.explanation,
+            estimatedValue: existing.estimatedValue,
+            suggestedStrategy: existing.suggestedStrategy,
+            whatsappMessage: String(result.whatsappMessage ?? ''),
+            emailSubject: String(result.emailSubject ?? ''),
+            emailBody: String(result.emailBody ?? ''),
+            followUpDate: Number(result.followUpDate ?? 3),
+          });
+        }
+      } catch (e) { this.logger.warn('Package pitch update failed (non-critical)', e); }
+    }
+    return result;
+  }
+
+  @Get('package/:customerId')
+  getPackage(@CurrentTenant() tenantId: string, @Param('customerId') customerId: string) {
+    return this.packages.getForCustomer(tenantId, customerId);
   }
 
   @Post('search-places')

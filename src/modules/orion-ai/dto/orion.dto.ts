@@ -39,6 +39,7 @@ export class AnalyzeCompanyDto {
   @IsOptional() @IsString() industry?: string;
   @IsOptional() @IsString() location?: string;
   @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsString() customerId?: string;
 }
 
 export class GeneratePitchDto {
@@ -49,6 +50,10 @@ export class GeneratePitchDto {
   @IsOptional() @IsString() analysis?: string;
   @IsOptional() @IsString() recommendedProduct?: string;
   @IsOptional() @IsString() painPoint?: string;
+  @IsOptional() @IsString() customerId?: string;
+  @IsOptional() @IsString() packageName?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) complementaryProducts?: string[];
+  @IsOptional() @IsNumber() estimatedValue?: number;
 }
 
 export class SearchPlacesDto {

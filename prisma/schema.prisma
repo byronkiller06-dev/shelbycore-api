@@ -122,10 +122,32 @@ model Customer {
   notes     String?
   tasks     Task[]
   documents Document[]
+  package   ProspectPackage?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
   @@index([tenantId, stage])
+}
+
+model ProspectPackage {
+  id                String   @id @default(cuid())
+  tenantId          String
+  customerId        String   @unique
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  mainProduct       String   @default("")
+  complementary     String   @default("[]")
+  packageName       String   @default("")
+  explanation       String   @default("")
+  estimatedValue    Float    @default(0)
+  suggestedStrategy String   @default("")
+  whatsappMessage   String   @default("")
+  emailSubject      String   @default("")
+  emailBody         String   @default("")
+  followUpDate      Int      @default(3)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 // --------- Documentos ---------

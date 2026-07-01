@@ -92,8 +92,11 @@ export class OrionAiService {
     } catch { return { analysis: res.text, fitScore: 0.7, needs: ['ShelbyCore AI'], recommendedProduct: 'ShelbyCore AI', urgency: 'media' }; }
   }
 
-  async generatePitch(data: { name: string; company?: string; industry?: string; location?: string; analysis?: string; recommendedProduct?: string; painPoint?: string }, productCatalog = ''): Promise<unknown> {
-    const prompt = `Empresa: ${data.company || data.name}\nRubro: ${data.industry || 'general'}\nUbicación: ${data.location || 'México'}\nProducto recomendado: ${data.recommendedProduct || 'ShelbyCore AI'}\nProblema principal: ${data.painPoint || 'no especificado'}\nAnálisis: ${data.analysis || 'empresa sin análisis previo'}\n\nGenera el pitch y mensajes. Devuelve solo el JSON, sin texto adicional.`;
+  async generatePitch(data: { name: string; company?: string; industry?: string; location?: string; analysis?: string; recommendedProduct?: string; painPoint?: string; complementaryProducts?: string[]; estimatedValue?: number }, productCatalog = ''): Promise<unknown> {
+    const packageLine = data.complementaryProducts?.length
+      ? `\nPaquete completo: ${data.recommendedProduct} + ${data.complementaryProducts.join(' + ')}${data.estimatedValue ? ` · Valor: $${data.estimatedValue.toLocaleString()}` : ''}`
+      : '';
+    const prompt = `Empresa: ${data.company || data.name}\nRubro: ${data.industry || 'general'}\nUbicación: ${data.location || 'México'}\nProducto/Paquete recomendado: ${data.recommendedProduct || 'ShelbyCore AI'}${packageLine}\nProblema principal: ${data.painPoint || 'no especificado'}\nAnálisis: ${data.analysis || 'empresa sin análisis previo'}\n\nGenera el pitch y mensajes del paquete completo. Devuelve solo el JSON, sin texto adicional.`;
     const res = await this.generate({
       prompt,
       system: SystemPrompts.pitchGenerator(productCatalog),
