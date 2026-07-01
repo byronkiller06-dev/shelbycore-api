@@ -6,6 +6,7 @@ import {
   CommercialAnalysisDto, ObjectionResponseDto, ExplainDto,
 } from './dto/orion.dto';
 import { JwtAuthGuard } from '../../shared/auth/guards/jwt-auth.guard';
+import { Public } from '../../shared/auth/decorators/public.decorator';
 import { PlacesService } from './places.service';
 import { ProductsService } from '../products/products.service';
 import { PackagesService } from '../products/packages.service';
@@ -149,6 +150,7 @@ export class OrionAiController {
 
   // ─── Places ───────────────────────────────────────────────────
 
+  @Public()
   @Get('places-status')
   placesStatus() {
     return this.places.keyStatus();
