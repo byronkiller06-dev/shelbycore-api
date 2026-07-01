@@ -51,6 +51,12 @@ export class GeneratePitchDto {
   @IsOptional() @IsString() painPoint?: string;
 }
 
+export class SearchPlacesDto {
+  @IsString() query!: string;
+  @IsString() location!: string;
+  @IsOptional() @IsNumber() @Min(1) @Max(30) limit?: number;
+}
+
 export class AssistDto {
   @IsString() prompt!: string;
   @IsIn(['admin', 'worker']) audience!: 'admin' | 'worker';

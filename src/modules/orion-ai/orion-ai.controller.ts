@@ -1,12 +1,16 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { OrionAiService } from './orion-ai.service';
-import { AnalyzeDto, AskDto, AssistDto, FindProspectsDto, AnalyzeCompanyDto, GeneratePitchDto } from './dto/orion.dto';
+import { AnalyzeDto, AskDto, AssistDto, FindProspectsDto, AnalyzeCompanyDto, GeneratePitchDto, SearchPlacesDto } from './dto/orion.dto';
 import { JwtAuthGuard } from '../../shared/auth/guards/jwt-auth.guard';
+import { PlacesService } from './places.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('orion')
 export class OrionAiController {
-  constructor(private readonly orion: OrionAiService) {}
+  constructor(
+    private readonly orion: OrionAiService,
+    private readonly places: PlacesService,
+  ) {}
 
   @Get('status')
   status() { return this.orion.status(); }
@@ -42,5 +46,10 @@ export class OrionAiController {
   @Post('generate-pitch')
   generatePitch(@Body() dto: GeneratePitchDto) {
     return this.orion.generatePitch({ name: dto.name, company: dto.company, industry: dto.industry, location: dto.location, analysis: dto.analysis, recommendedProduct: dto.recommendedProduct, painPoint: dto.painPoint });
+  }
+
+  @Post('search-places')
+  searchPlaces(@Body() dto: SearchPlacesDto) {
+    return this.places.searchBusinesses(dto.query, dto.location, dto.limit ?? 20);
   }
 }
