@@ -9,6 +9,9 @@ export interface PlaceResult {
   lat?: number;
   lon?: number;
   osmId?: number;
+  placeId?: string;
+  rating?: number;
+  verified: boolean;
   source: 'openstreetmap' | 'google_places' | 'manual';
 }
 
@@ -148,21 +151,40 @@ export class PlacesService {
   private readonly logger = new Logger(PlacesService.name);
 
   async searchBusinesses(query: string, location: string, limit = 20): Promise<PlaceResult[]> {
-    // 1. Check if Google Places key is available and valid-looking
+    const MINIMUM = 15;
     const googleKey = process.env.GOOGLE_PLACES_API_KEY ?? '';
+    let gpResults: PlaceResult[] = [];
+
     if (this.isValidGoogleKey(googleKey)) {
       this.logger.log('Google Places key detected — attempting Google Places search');
       try {
-        const gpResults = await this.searchGooglePlaces(query, location, limit, googleKey);
-        if (gpResults.length > 0) return gpResults;
-        this.logger.warn('Google Places returned 0 results, falling back to OSM');
+        gpResults = await this.searchGooglePlaces(query, location, limit, googleKey);
+        this.logger.log(`Google Places returned ${gpResults.length} results`);
       } catch (err) {
         this.logger.warn(`Google Places failed (${String((err as Error).message)}), falling back to OSM`);
       }
     }
 
-    // 2. OSM / Overpass
-    return this.searchOSM(query, location, limit);
+    // If Google Places returned enough, return them directly
+    if (gpResults.length >= MINIMUM) return gpResults;
+
+    // Complement with OSM to reach at least MINIMUM results
+    const needMore = gpResults.length < MINIMUM;
+    if (needMore) {
+      this.logger.log(`Google Places returned ${gpResults.length} (< ${MINIMUM}), complementing with OSM`);
+    }
+    const osmResults = await this.searchOSM(query, location, limit);
+
+    const seen = new Set(gpResults.map(r => r.name.toLowerCase()));
+    for (const r of osmResults) {
+      if (!seen.has(r.name.toLowerCase())) {
+        gpResults.push(r);
+        seen.add(r.name.toLowerCase());
+        if (gpResults.length >= limit) break;
+      }
+    }
+
+    return gpResults;
   }
 
   // ─── OSM / Overpass ───────────────────────────────────────────
@@ -324,6 +346,7 @@ export class PlacesService {
         lat,
         lon,
         osmId: el.id,
+        verified: true,
         source: 'openstreetmap',
       });
     }
@@ -371,7 +394,7 @@ export class PlacesService {
     const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
     const data = (await res.json()) as {
       status: string;
-      results?: Array<{ place_id: string; name: string; formatted_address?: string; types?: string[] }>;
+      results?: Array<{ place_id: string; name: string; formatted_address?: string; types?: string[]; rating?: number }>;
     };
 
     if (data.status === 'REQUEST_DENIED' || data.status === 'INVALID_REQUEST') {
@@ -388,6 +411,9 @@ export class PlacesService {
         phone: det.phone,
         website: det.website,
         category: (place.types?.[0] ?? 'establishment').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        placeId: place.place_id,
+        rating: place.rating,
+        verified: true,
         source: 'google_places',
       });
     }

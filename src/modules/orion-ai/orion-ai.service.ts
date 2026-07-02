@@ -111,6 +111,31 @@ export class OrionAiService {
     } catch { return { pitch: res.text, whatsappMessage: res.text, emailSubject: 'ShelbyCore AI para tu negocio', emailBody: res.text, followUpDate: 3 }; }
   }
 
+  async analyzeClientResponse(
+    customerContext: string,
+    productContext: string,
+    responseText: string,
+  ): Promise<unknown> {
+    const prompt = `Respuesta recibida del cliente:\n\n"${responseText}"\n\nAnaliza la intención y genera la mejor respuesta comercial.`;
+    const res = await this.generate({
+      prompt,
+      system: SystemPrompts.responseAnalyzer(customerContext, productContext),
+      config: { json: true, temperature: 0.35 },
+    });
+    try {
+      const text = res.text.replace(/```json|```/g, '').trim();
+      return JSON.parse(text);
+    } catch {
+      return {
+        intent: 'neutral', urgency: 'media', hotspot: false,
+        recommendation: 'schedule_followup', reasoning: res.text,
+        replyMessage: res.text, whatsappText: res.text,
+        emailSubject: '', emailBody: '', followupDays: 3,
+        suggestedStageChange: null,
+      };
+    }
+  }
+
   // Preparado para multimodal (voz/OCR/imágenes/documentos): basta con pasar
   // `attachments` a generate(); la infraestructura ya lo soporta.
 

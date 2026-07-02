@@ -53,22 +53,31 @@ Devuelve EXCLUSIVAMENTE un JSON válido (array), sin markdown, sin explicación.
   companyAnalyzer: (productCatalog = '') =>
     `${BASE} Especialidad: ANÁLISIS COMERCIAL Y CONSTRUCCIÓN DE PAQUETES PARA SHELBYCORE AI.
 ShelbyCore AI vende tecnología: sistemas POS, apps móviles, páginas web, automatización con IA, agentes inteligentes y software a medida.${productCatalog}
-Analiza la empresa y construye el PAQUETE ÓPTIMO combinando productos cuando tenga sentido (ej: POS + App + Web para un restaurante moderno). Si hay productos en el catálogo, úsalos por nombre exacto. Si solo aplica uno, los complementarios van vacíos.
+REGLAS DE SELECCIÓN:
+- Usa SOLO productos del catálogo, por nombre EXACTO (copia el nombre sin modificar).
+- Selecciona el producto principal que mejor resuelve el PROBLEMA PRINCIPAL del negocio.
+- Agrega complementarios SOLO si genuinamente resuelven un problema distinto.
+- NO inflés el paquete para aumentar ticket. Un cliente satisfecho con el producto básico vale más que uno insatisfecho con el paquete completo.
+- El salesPriority del paquete es el más alto entre los productos seleccionados (alta > media > baja).
+- El commercialMarginPct es el promedio de los márgenes de los productos seleccionados (extrae el número del campo "Margen: X%").
 Responde EXCLUSIVAMENTE en JSON válido, sin markdown:
 {
   "needs": ["necesidades detectadas"],
   "mainPainPoint": "problema principal que ShelbyCore resuelve",
   "fitScore": 0.9,
-  "mainProduct": "nombre exacto del producto principal",
-  "complementaryProducts": ["producto complementario 1", "producto complementario 2"],
+  "selectedProducts": ["nombre exacto producto 1", "nombre exacto producto 2"],
+  "mainProduct": "nombre exacto del producto principal (debe estar en selectedProducts)",
+  "complementaryProducts": ["nombre exacto de complementarios (deben estar en selectedProducts)"],
   "packageName": "nombre comercial del paquete (ej: Pack Restaurante Pro, Combo Digital, Plan Básico)",
   "packageExplanation": "por qué esta combinación específica resuelve los problemas de este negocio (2-3 oraciones)",
   "estimatedValue": 25000,
+  "salesPriority": "alta",
+  "commercialMarginPct": 40.0,
   "suggestedStrategy": "cómo vender: qué presentar primero, cuándo hacer upsell, argumento clave (2-3 oraciones)",
-  "recommendedProduct": "nombre del paquete o producto principal (mismo que packageName si hay combinación)",
+  "recommendedProduct": "nombre del paquete o producto principal",
   "estimatedROI": "retorno esperado para el cliente (concreto: tiempo, dinero, eficiencia)",
   "urgency": "alta / media / baja",
-  "analysis": "análisis de la situación comercial del negocio y por qué necesita este paquete específico (3-4 oraciones)"
+  "analysis": "análisis de la situación comercial del negocio y por qué necesita este paquete (3-4 oraciones)"
 }`,
 
   pitchGenerator: (productCatalog = '') =>
@@ -88,7 +97,8 @@ Responde EXCLUSIVAMENTE en JSON válido, sin markdown:
     `${BASE} Eres el MOTOR COMERCIAL AUTÓNOMO de ORION. Tu misión: analizar un prospecto y tomar una decisión comercial completa, accionable e inteligente.
 
 PRINCIPIO FUNDAMENTAL — PROBLEMA PRIMERO, NO PRECIO:
-Tu objetivo es resolver el problema real del cliente. Si un solo producto resuelve su necesidad, recomiéndalo. NO inflés el paquete para aumentar el ticket. Solo agrega complementarios cuando genuinamente resuelvan un problema distinto y el cliente puede absorber el costo. Un cliente satisfecho con el producto básico vale más que uno insatisfecho con el paquete completo.${productCatalog}
+Tu objetivo es resolver el problema real del cliente. Si un solo producto resuelve su necesidad, recomiéndalo. NO inflés el paquete para aumentar el ticket. Solo agrega complementarios cuando genuinamente resuelvan un problema distinto y el cliente puede absorber el costo. Un cliente satisfecho con el producto básico vale más que uno insatisfecho con el paquete completo.
+REGLAS DE SELECCIÓN DEL CATÁLOGO: Usa SOLO productos del catálogo por nombre EXACTO. El salesPriority del paquete es el más alto entre seleccionados. El commercialMarginPct es el promedio de los márgenes numéricos de los seleccionados.${productCatalog}
 
 ESTRATEGIAS DISPONIBLES — elige UNA según las señales reales del prospecto (varía siempre):
 1. venta_consultiva → necesidades complejas o poco claras; escuchar antes de vender
@@ -152,6 +162,9 @@ Responde EXCLUSIVAMENTE en JSON válido, sin markdown:
     "priority": "HIGH",
     "effortRequired": "medio"
   },
+  "selectedProducts": ["nombre exacto producto 1", "nombre exacto producto 2"],
+  "packageSalesPriority": "alta",
+  "packageCommercialMarginPct": 40.0,
   "benefitsToHighlight": ["beneficio concreto 1 para este rubro", "beneficio 2", "beneficio 3"],
   "salesBrief": "brief táctico: qué hacer primero, qué mostrar, cómo cerrar (3-4 oraciones)",
   "nextAction": "próxima acción concreta con plazo (ej: WhatsApp hoy con demo, cita esta semana)",
@@ -180,6 +193,58 @@ Responde EXCLUSIVAMENTE en JSON válido, sin markdown:
     "suggestedMessage": "mensaje específico corto (50-80 palabras) para el primer contacto post-análisis, usando el nombre de la empresa y el problema principal"
   },
   "whyThisProduct": "explicación detallada (4-5 oraciones) de por qué este producto o paquete específico es la mejor solución para este negocio: problema que resuelve, por qué es el correcto (no el más caro), qué perdería si no lo adopta"
+}`,
+
+  responseAnalyzer: (customerContext = '', productContext = '') =>
+    `${BASE} Especialidad: ANÁLISIS DE RESPUESTA DEL CLIENTE para ShelbyCore AI.
+
+PERFIL DEL CLIENTE:
+${customerContext}
+
+PRODUCTOS SHELBYCORE DISPONIBLES:
+${productContext}
+
+Analizas el texto recibido del prospecto y decides la mejor acción comercial inmediata.
+
+INTENCIONES — elige la más probable:
+- "wants_meeting"   → pide reunión/demo/visita, "¿cuándo pueden venir?", "quiero verlo en persona"
+- "asking_price"    → pregunta precio/costo/plan, "¿cuánto es?", "¿tienen mensualidad?", "¿cuánto cobran?"
+- "wants_contract"  → quiere cerrar/contratar, "me interesa", "lo quiero", "¿cómo empezamos?", "¿qué necesitan?"
+- "very_interested" → preguntas de implementación, "¿cómo funciona?", "¿en cuánto tiempo?", señales de compra claras
+- "neutral"         → respuesta cortés sin señal de compra, "ok gracias", "entendido", "está bien"
+- "objection"       → objeción explícita, "está caro", "ya tenemos algo", "no es el momento", "lo tengo que pensar"
+- "not_interested"  → rechazo educado, "gracias pero no por ahora", "no aplica"
+- "lost"            → rechazo definitivo, "no gracias", bloqueó, o claramente sin interés real
+
+HOTSPOT = true cuando: wants_meeting, asking_price, wants_contract, very_interested
+HOTSPOT = false cuando: neutral, objection, not_interested, lost
+
+RECOMENDACIÓN:
+- "respond_now"       → hotspot=true; responder en menos de 2 horas, no dejes enfriar el momentum
+- "human_handoff"     → wants_contract; señal de cierre inminente → pasar a vendedor humano ahora
+- "schedule_followup" → neutral/objection; agendar seguimiento en followupDays días
+- "mark_lost"         → lost; no insistir más, marcar como perdido
+
+TEXTO WHATSAPP (whatsappText):
+- En español, informal-profesional, directo, máx 120 palabras
+- Si hotspot: urgencia, CTA concreto (fecha/hora de demo, confirmar interés, enviar propuesta)
+- Si objection: valida la preocupación → reencuadra en valor → propón un paso pequeño sin presión
+- Si not_interested: agradece con elegancia, deja puerta abierta
+- Usa el nombre de la empresa del cliente si está disponible
+
+Responde EXCLUSIVAMENTE en JSON válido, sin markdown:
+{
+  "intent": "wants_meeting",
+  "urgency": "critica",
+  "hotspot": true,
+  "recommendation": "respond_now",
+  "reasoning": "El prospecto está solicitando activamente una demostración. Es la señal de compra más directa posible. Responder en las próximas 2 horas maximiza la probabilidad de cierre.",
+  "replyMessage": "Texto de respuesta sugerido (natural, específico para este cliente)",
+  "whatsappText": "Hola [nombre]! 🎉 Con gusto te hacemos la demo. ¿Te queda bien el [día] a las [hora]? En 30 minutos te mostramos ShelbyCore en acción. ¡Confirma y lo agendamos!",
+  "emailSubject": "Asunto del email si aplica (vacío si WhatsApp es suficiente)",
+  "emailBody": "Cuerpo del email si aplica (vacío si no aplica)",
+  "followupDays": 0,
+  "suggestedStageChange": "PROSPECT"
 }`,
 
   objectionHandler: (customerContext = '', productContext = '') =>

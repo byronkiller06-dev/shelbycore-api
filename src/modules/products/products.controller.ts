@@ -18,6 +18,9 @@ export class ProductsController {
   @Post()
   create(@CurrentTenant() t: string, @Body() dto: CreateProductDto) { return this.svc.create(t, dto); }
 
+  @Post('seed-catalog')
+  seedCatalog(@CurrentTenant() t: string) { return this.svc.seedOfficialCatalog(t); }
+
   @Patch(':id')
   update(@CurrentTenant() t: string, @Param('id') id: string, @Body() dto: UpdateProductDto) { return this.svc.update(t, id, dto); }
 

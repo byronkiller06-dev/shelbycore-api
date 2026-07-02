@@ -14,6 +14,9 @@ export interface PackageInput {
   emailSubject?: string;
   emailBody?: string;
   followUpDate?: number;
+  selectedProductIds?: string[];
+  salesPriority?: string;
+  commercialMargin?: number;
 }
 
 @Injectable()
@@ -21,26 +24,34 @@ export class PackagesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async upsert(input: PackageInput) {
-    const complementary = JSON.stringify(input.complementary ?? []);
     const base = {
-      tenantId: input.tenantId,
-      customerId: input.customerId,
-      mainProduct: input.mainProduct,
-      complementary,
-      packageName: input.packageName,
-      explanation: input.explanation,
-      estimatedValue: input.estimatedValue ?? 0,
-      suggestedStrategy: input.suggestedStrategy,
+      tenantId:           input.tenantId,
+      customerId:         input.customerId,
+      mainProduct:        input.mainProduct,
+      complementary:      JSON.stringify(input.complementary ?? []),
+      packageName:        input.packageName,
+      explanation:        input.explanation,
+      estimatedValue:     input.estimatedValue ?? 0,
+      suggestedStrategy:  input.suggestedStrategy,
+      selectedProductIds: JSON.stringify(input.selectedProductIds ?? []),
+      salesPriority:      input.salesPriority ?? 'media',
+      commercialMargin:   input.commercialMargin ?? 0,
     };
     return this.prisma.prospectPackage.upsert({
       where: { customerId: input.customerId },
-      create: { ...base, whatsappMessage: input.whatsappMessage ?? '', emailSubject: input.emailSubject ?? '', emailBody: input.emailBody ?? '', followUpDate: input.followUpDate ?? 3 },
+      create: {
+        ...base,
+        whatsappMessage: input.whatsappMessage ?? '',
+        emailSubject:    input.emailSubject ?? '',
+        emailBody:       input.emailBody ?? '',
+        followUpDate:    input.followUpDate ?? 3,
+      },
       update: {
         ...base,
         ...(input.whatsappMessage !== undefined && { whatsappMessage: input.whatsappMessage }),
-        ...(input.emailSubject !== undefined && { emailSubject: input.emailSubject }),
-        ...(input.emailBody !== undefined && { emailBody: input.emailBody }),
-        ...(input.followUpDate !== undefined && { followUpDate: input.followUpDate }),
+        ...(input.emailSubject    !== undefined && { emailSubject:    input.emailSubject }),
+        ...(input.emailBody       !== undefined && { emailBody:       input.emailBody }),
+        ...(input.followUpDate    !== undefined && { followUpDate:    input.followUpDate }),
       },
     });
   }

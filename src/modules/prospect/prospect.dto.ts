@@ -14,6 +14,11 @@ export class SaveProspectDto {
   @IsOptional() @IsString() product?: string;
   @IsOptional() problems?: string[];
   @IsOptional() probability?: number;
+  @IsOptional() @IsString() address?: string;
+  @IsOptional() @IsString() source?: string;
+  @IsOptional() @IsString() placeId?: string;
+  @IsOptional() rating?: number;
+  @IsOptional() verified?: boolean;
 }
 
 export class DraftDto {

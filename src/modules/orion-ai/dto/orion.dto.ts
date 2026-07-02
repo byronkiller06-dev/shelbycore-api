@@ -75,6 +75,12 @@ export class ExplainDto {
   @IsString() customerId!: string;
 }
 
+export class AnalyzeResponseDto {
+  @IsString() customerId!: string;
+  @IsString() responseText!: string;
+  @IsOptional() @IsString() channel?: string;
+}
+
 export class AssistDto {
   @IsString() prompt!: string;
   @IsIn(['admin', 'worker']) audience!: 'admin' | 'worker';

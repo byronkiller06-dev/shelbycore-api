@@ -121,11 +121,19 @@ export class ProspectService {
 
   async save(dto: SaveProspectDto) {
     const tenantId = await this.defaultTenantId();
+    const noteParts: string[] = [];
+    if (dto.address) noteParts.push(`Dir: ${dto.address}`);
+    if (dto.website) noteParts.push(`Web: ${dto.website}`);
+    if (dto.rating) noteParts.push(`Rating: ${dto.rating}★`);
+    if (dto.source) noteParts.push(`Fuente: ${dto.source === 'google_places' ? 'Google Places' : dto.source === 'openstreetmap' ? 'OpenStreetMap' : dto.source}`);
+    if (dto.placeId) noteParts.push(`PlaceID: ${dto.placeId}`);
+    if (dto.verified) noteParts.push('verificado: true');
+    if (dto.problems?.length) noteParts.push(`ORION: ${dto.problems.join('; ')}`);
     return this.prisma.customer.create({
       data: {
         tenantId, name: dto.company, company: dto.company, email: dto.email, phone: dto.phone,
         product: dto.product, stage: 'PROSPECT', score: (dto.probability ?? 0) / 100,
-        notes: `ORION Prospect · ${(dto.problems ?? []).join('; ')}`,
+        notes: noteParts.join(' | ') || 'ORION Prospect',
       },
     });
   }

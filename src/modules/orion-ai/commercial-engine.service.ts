@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
+import { PackagesService } from '../products/packages.service';
 import { OrionAiService } from './orion-ai.service';
 import { SystemPrompts } from './prompts/system-prompts';
 
@@ -28,6 +29,9 @@ export interface CommercialResult {
   topObjections: Objection[];
   smartFollowup: SmartFollowup;
   whyThisProduct: string;
+  selectedProducts?: string[];
+  packageSalesPriority?: string;
+  packageCommercialMarginPct?: number;
 }
 
 export interface LearningStats {
@@ -48,6 +52,7 @@ export class CommercialEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly products: ProductsService,
+    private readonly packages: PackagesService,
     private readonly orion: OrionAiService,
   ) {}
 
@@ -91,6 +96,7 @@ export class CommercialEngineService {
 
     await Promise.all([
       this.saveLeadScore(tenantId, customerId, result),
+      this.updatePackageFromCommercialResult(tenantId, customerId, result),
       this.logEvent(tenantId, 'COMMERCIAL_ANALYSIS', {
         customerId, strategyType: result.selectedStrategy?.type ?? '',
         worthSelling: result.commercialDecision?.worthSelling,
@@ -264,6 +270,30 @@ export class CommercialEngineService {
   }
 
   // ─── Persist ──────────────────────────────────────────────────
+
+  private async updatePackageFromCommercialResult(tenantId: string, customerId: string, r: CommercialResult): Promise<void> {
+    const selectedNames = r.selectedProducts ?? [];
+    if (!selectedNames.length) return;
+    try {
+      const dbProducts = await this.products.findByNames(tenantId, selectedNames);
+      const selectedProductIds = dbProducts.map(p => p.id);
+      const existing = await this.packages.getForCustomer(tenantId, customerId);
+      if (existing) {
+        await this.packages.upsert({
+          tenantId, customerId,
+          mainProduct:       existing.mainProduct,
+          complementary:     JSON.parse(existing.complementary) as string[],
+          packageName:       existing.packageName,
+          explanation:       existing.explanation,
+          estimatedValue:    existing.estimatedValue,
+          suggestedStrategy: existing.suggestedStrategy,
+          selectedProductIds,
+          salesPriority:     r.packageSalesPriority ?? 'media',
+          commercialMargin:  r.packageCommercialMarginPct ?? 0,
+        });
+      }
+    } catch { /* non-critical */ }
+  }
 
   private async saveLeadScore(tenantId: string, customerId: string, r: CommercialResult): Promise<void> {
     try {

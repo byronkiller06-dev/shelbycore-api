@@ -108,45 +108,73 @@ model Task {
 // --------- CRM ---------
 
 model Customer {
-  id        String     @id @default(cuid())
-  tenantId  String
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
-  name      String
-  company   String?
-  email     String?
-  phone     String?
-  product   String?
-  stage     String     @default("LEAD")
-  score     Float      @default(0)
-  value     Float      @default(0)
-  notes     String?
-  tasks     Task[]
-  documents Document[]
-  package   ProspectPackage?
-  leadScore LeadScore?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  tenantId   String
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  name       String
+  company    String?
+  email      String?
+  phone      String?
+  product    String?
+  stage      String     @default("LEAD")
+  score      Float      @default(0)
+  value      Float      @default(0)
+  notes      String?
+  hotspotAt  DateTime?
+  tasks      Task[]
+  documents  Document[]
+  package    ProspectPackage?
+  leadScore  LeadScore?
+  responses  ClientResponse[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([tenantId, stage])
+  @@index([tenantId, hotspotAt])
+}
+
+model ClientResponse {
+  id             String   @id @default(cuid())
+  tenantId       String
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  responseText   String   @default("")
+  channel        String   @default("whatsapp")
+  intent         String   @default("neutral")
+  urgency        String   @default("media")
+  hotspot        Boolean  @default(false)
+  recommendation String   @default("schedule_followup")
+  replyMessage   String   @default("")
+  whatsappText   String   @default("")
+  emailSubject   String   @default("")
+  emailBody      String   @default("")
+  reasoning      String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, hotspot])
 }
 
 model ProspectPackage {
-  id                String   @id @default(cuid())
-  tenantId          String
-  customerId        String   @unique
-  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  mainProduct       String   @default("")
-  complementary     String   @default("[]")
-  packageName       String   @default("")
-  explanation       String   @default("")
-  estimatedValue    Float    @default(0)
-  suggestedStrategy String   @default("")
-  whatsappMessage   String   @default("")
-  emailSubject      String   @default("")
-  emailBody         String   @default("")
-  followUpDate      Int      @default(3)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  tenantId           String
+  customerId         String   @unique
+  customer           Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  mainProduct        String   @default("")
+  complementary      String   @default("[]")
+  packageName        String   @default("")
+  explanation        String   @default("")
+  estimatedValue     Float    @default(0)
+  suggestedStrategy  String   @default("")
+  whatsappMessage    String   @default("")
+  emailSubject       String   @default("")
+  emailBody          String   @default("")
+  followUpDate       Int      @default(3)
+  selectedProductIds String   @default("[]")
+  salesPriority      String   @default("media")
+  commercialMargin   Float    @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([tenantId])
 }
@@ -183,22 +211,25 @@ model EventLog {
 // --------- Base de Productos ShelbyCore ---------
 
 model ShelbyProduct {
-  id           String   @id @default(cuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
-  name         String
-  description  String   @default("")
-  idealClient  String   @default("")
-  targetRubros String   @default("[]")
-  problems     String   @default("[]")
-  benefits     String   @default("[]")
-  price        String   @default("")
-  objections   String   @default("[]")
-  shortMessage String   @default("")
-  longMessage  String   @default("")
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+  name             String
+  category         String   @default("")
+  description      String   @default("")
+  idealClient      String   @default("")
+  targetRubros     String   @default("[]")
+  problems         String   @default("[]")
+  benefits         String   @default("[]")
+  price            String   @default("")
+  objections       String   @default("[]")
+  shortMessage     String   @default("")
+  longMessage      String   @default("")
+  salesPriority    String   @default("media")
+  commercialMargin String   @default("")
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([tenantId, active])
 }
